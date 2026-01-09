@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Kelola Pesanan - Admin</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* CSS Tambahan untuk Modal & Table */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fff; padding: 25px; border-radius: 10px; width: 500px; max-width: 90%; position: relative; max-height: 85vh; overflow-y: auto; }
+        .close { position: absolute; right: 20px; top: 15px; font-size: 24px; cursor: pointer; color: #aaa; }
+        .close:hover { color: #000; }
+        
+        .btn-track { background: #e67e22; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; margin-left: 5px; }
+        .btn-cicilan { background: #3498db; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        .badge-pending { background: #ffeeba; color: #856404; }
+        .badge-success { background: #d4edda; color: #155724; }
+        .badge-info { background: #d1ecf1; color: #0c5460; }
+
+        /* Progress Bar Style */
+        .progress-container {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .progress-bar-bg {
+            background: #e9ecef;
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .progress-bar-fill {
+            background: #2ecc71;
+            height: 100%;
+            transition: width 0.5s ease;
+        }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+        th { background-color: #f8f9fa; color: #333; }
+    </style>
+</head>
+<body>
+    <div id="navbar-container"></div>
+
+    <div class="container">
+        <h2 style="margin-bottom:20px"><i class="fas fa-box"></i> Kelola Pesanan & Distribusi</h2>
+        <div class="glass-card">
+            <table id="tabelPesanan">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Pemesan</th>
+                        <th>Hewan</th>
+                        <th>Metode</th>
+                        <th>Status & Lokasi</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="dataPesanan">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="modalDetail" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('modalDetail')">&times;</span>
+            <h3 style="margin-top:0"><i class="fas fa-file-invoice-dollar"></i> Detail Pembayaran</h3>
+            <div id="loadingCicilan">Memuat data...</div>
+            <div id="contentCicilan" style="display:none">
+                <div id="progressArea"></div>
+                
+                <h4 style="border-bottom:1px solid #eee; padding-bottom:10px; margin-top:20px;">Riwayat Cicilan</h4>
+                <div id="listCicilanAdmin" style="max-height:300px; overflow-y:auto;">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalTracking" class="modal">
+        <div class="modal-content" style="width:400px;">
+            <span class="close" onclick="closeModal('modalTracking')">&times;</span>
+            <h3>Update Posisi Paket</h3>
+            <input type="hidden" id="trackOrderId">
+            <div style="margin-bottom:15px">
+                <label>Lokasi / Status Terkini:</label>
+                <textarea id="trackDeskripsi" class="form-control" rows="3" placeholder="Contoh: Paket sedang menuju lokasi Ciwidey..."></textarea>
+            </div>
+            <button onclick="simpanTracking()" class="btn-primary" style="width:100%">Simpan Update</button>
+        </div>
+    </div>
+
+    <script src="js/navbar.js"></script>
+    <script>
+        // Cek Login Admin
+        if(localStorage.getItem('role') !== 'admin') window.location.href = 'login.html';
+
+        document.addEventListener('DOMContentLoaded', loadPesanan);
+
+        async function loadPesanan() {
+            try {
+                const res = await fetch('http://localhost:3000/api/admin/pesanan');
+                const data = await res.json();
+                const tbody = document.getElementById('dataPesanan');
+                tbody.innerHTML = '';
+
+                if(data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;">Belum ada pesanan masuk.</td></tr>';
+                    return;
+                }
+
+                data.forEach(p => {
+                    // Badge Status
+                    let badgeClass = 'badge-pending';
+                    if(p.status_pesanan === 'selesai') badgeClass = 'badge-success';
+                    else if(p.status_pesanan === 'diproses' || p.status_pesanan === 'dibayar') badgeClass = 'badge-info';
+
+                    // Info Lokasi
+                    const lokasiSaatIni = p.lacak_distribusi ? 
+                        `<div style="font-size:0.8rem; color:#e67e22; margin-top:5px;"><i class="fas fa-map-marker-alt"></i> ${p.lacak_distribusi}</div>` : 
+                        '';
+
+                    // Tombol Aksi
+                    let btnAksi = '';
+                    
+                    // Tombol 1: Cek Cicilan / Verifikasi Lunas
+                    if (p.metode_bayar === 'cicilan') {
+                        btnAksi += `<button class="btn-cicilan" onclick="bukaModalCicilan(${p.id})"><i class="fas fa-chart-pie"></i> Cek Cicilan</button> `;
+                    } else {
+                         // Cash
+                        if (p.status_pembayaran === 'menunggu_verifikasi') {
+                            btnAksi += `
+                                <a href="/uploads/bukti/${p.bukti_transfer}" target="_blank" style="color:#2980b9; font-size:0.85rem; margin-right:5px;">Lihat Bukti</a>
+                                <button onclick="verifLunas(${p.id})" style="background:#2ecc71; border:none; color:white; padding:5px 8px; border-radius:4px; cursor:pointer;">Terima</button>
+                            `;
+                        } else if(p.status_pembayaran === 'belum_dibayar') {
+                            btnAksi += `<span style="color:#999; font-size:0.8rem">Belum Bayar</span>`;
+                        } else {
+                            btnAksi += `<span class="badge badge-success">LUNAS</span>`;
+                        }
+                    }
+
+                    // Tombol 2: Update Distribusi (Hanya jika sudah diproses/lunas/cicilan jalan)
+                    btnAksi += `<button class="btn-track" onclick="bukaModalTracking(${p.id}, '${p.lacak_distribusi || ''}')" title="Update Lokasi"><i class="fas fa-truck"></i></button>`;
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>#${p.id}</td>
+                            <td>${p.nama_lengkap}</td>
+                            <td>${p.jenis_hewan}</td>
+                            <td>${p.metode_bayar.toUpperCase()}</td>
+                            <td>
+                                <span class="badge ${badgeClass}">${p.status_pesanan}</span>
+                                ${lokasiSaatIni}
+                            </td>
+                            <td>${btnAksi}</td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error(err);
+                document.getElementById('dataPesanan').innerHTML = '<tr><td colspan="6" style="color:red; text-align:center">Gagal memuat data server.</td></tr>';
+            }
+        }
+
+        /* --- LOGIKA MODAL TRACKING --- */
+        function bukaModalTracking(id, currentText) {
+            document.getElementById('trackOrderId').value = id;
+            document.getElementById('trackDeskripsi').value = (currentText === 'null' || !currentText) ? '' : currentText;
+            document.getElementById('modalTracking').style.display = 'flex';
+        }
+
+        async function simpanTracking() {
+            const id = document.getElementById('trackOrderId').value;
+            const deskripsi = document.getElementById('trackDeskripsi').value;
+            if(!deskripsi) return alert("Deskripsi lokasi tidak boleh kosong!");
+
+            try {
+                const res = await fetch(`http://localhost:3000/api/pesanan/${id}/distribusi`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ deskripsi })
+                });
+                if(res.ok) {
+                    alert('Lokasi berhasil diupdate!');
+                    closeModal('modalTracking');
+                    loadPesanan();
+                } else {
+                    alert('Gagal update. Pastikan server sudah direstart.');
+                }
+            } catch (err) { alert('Error koneksi: ' + err.message); }
+        }
+
+        /* --- LOGIKA MODAL CICILAN & PROGRESS --- */
+        async function bukaModalCicilan(id) {
+            document.getElementById('modalDetail').style.display = 'flex';
+            document.getElementById('loadingCicilan').style.display = 'block';
+            document.getElementById('contentCicilan').style.display = 'none';
+
+            try {
+                const res = await fetch(`http://localhost:3000/api/pesanan/${id}/cicilan`);
+                if(!res.ok) throw new Error("Gagal ambil data cicilan");
+                const data = await res.json();
+                
+                renderCicilan(data);
+                
+                document.getElementById('loadingCicilan').style.display = 'none';
+                document.getElementById('contentCicilan').style.display = 'block';
+            } catch(e) {
+                document.getElementById('loadingCicilan').innerHTML = `<p style="color:red">${e.message}</p>`;
+            }
+        }
+
+        function renderCicilan(data) {
+            const container = document.getElementById('listCicilanAdmin');
+            const progressArea = document.getElementById('progressArea');
+            container.innerHTML = '';
+            
+            // 1. Hitung Progress
+            const totalTagihan = parseFloat(data.pesanan.total_harga);
+            const totalDibayar = data.cicilan
+                .filter(c => c.status === 'lunas')
+                .reduce((acc, curr) => acc + parseFloat(curr.nominal), 0);
+            
+            const persentase = Math.round((totalDibayar / totalTagihan) * 100);
+            
+            // Render Progress Bar
+            progressArea.innerHTML = `
+                <div class="progress-container">
+                    <div style="display:flex; justify-content:space-between; font-size:0.9rem; margin-bottom:5px;">
+                        <strong>Progress: ${persentase}%</strong>
+                        <span style="color:#555">Rp ${totalDibayar.toLocaleString()} / Rp ${totalTagihan.toLocaleString()}</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" style="width: ${persentase}%"></div>
+                    </div>
+                </div>
+            `;
+
+            // 2. Render List Cicilan
+            if(!data.cicilan || data.cicilan.length === 0) {
+                container.innerHTML = '<p>Tidak ada data cicilan.</p>';
+                return;
+            }
+
+            data.cicilan.forEach(c => {
+                let statusHtml = '';
+                
+                if(c.status === 'lunas') {
+                    statusHtml = '<span class="badge badge-success"><i class="fas fa-check"></i> LUNAS</span>';
+                } else if(c.status === 'menunggu_verifikasi') {
+                    statusHtml = `
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <a href="/uploads/bukti/${c.bukti_bayar}" target="_blank" style="color:#3498db; font-size:0.8rem;"><i class="fas fa-image"></i> Bukti</a>
+                            <button onclick="verifCicilan(${c.id}, ${data.pesanan.id})" style="background:#27ae60; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;">Verifikasi</button>
+                        </div>
+                    `;
+                } else {
+                    statusHtml = '<span style="color:#e74c3c; font-size:0.8rem;">Belum Bayar</span>';
+                }
+
+                container.innerHTML += `
+                    <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid #eee; align-items:center;">
+                        <div>
+                            <div style="font-weight:bold; color:#333;">${c.angsuran_ke === 0 ? 'DP (Uang Muka)' : 'Angsuran ke-' + c.angsuran_ke}</div>
+                            <div style="font-size:0.8rem; color:#777;">Jatuh Tempo: ${new Date(c.jatuh_tempo).toLocaleDateString('id-ID')}</div>
+                            <div style="font-size:0.9rem; color:#2c3e50;">Rp ${parseInt(c.nominal).toLocaleString()}</div>
+                        </div>
+                        <div>${statusHtml}</div>
+                    </div>
+                `;
+            });
+        }
+
+        // Fungsi Aksi
+        async function verifCicilan(idCicilan, idPesanan) {
+            if(!confirm('Validasi pembayaran ini sebagai LUNAS?')) return;
+            try {
+                await fetch(`http://localhost:3000/api/admin/cicilan/${idCicilan}/verifikasi`, { method: 'PUT' });
+                // Refresh modal
+                bukaModalCicilan(idPesanan);
+                loadPesanan(); // Refresh background table juga
+            } catch(e) { alert('Gagal: ' + e.message); }
+        }
+
+        async function verifLunas(id) {
+            if(!confirm('Konfirmasi pelunasan pesanan ini?')) return;
+            try {
+                await fetch(`http://localhost:3000/api/admin/pesanan/${id}`, {
+                    method: 'PUT',
+                    headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ status: 'diproses', status_pembayaran: 'lunas' })
+                });
+                loadPesanan();
+            } catch(e) { alert('Gagal: ' + e.message); }
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Tutup modal jika klik di luar
+        window.onclick = function(event) {
+            if (event.target.classList.contains('modal')) {
+                event.target.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,721 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+- phpMyAdmin XML Dump
+- version 5.2.1
+- https://www.phpmyadmin.net
+-
+- Host: 127.0.0.1
+- Generation Time: Jan 09, 2026 at 01:46 PM
+- Server version: 10.4.32-MariaDB
+- PHP Version: 8.2.12
+-->
+
+<pma_xml_export version="1.0" xmlns:pma="https://www.phpmyadmin.net/some_doc_url/">
+    <!--
+    - Structure schemas
+    -->
+    <pma:structure_schemas>
+        <pma:database name="db_peternakan" collation="utf8mb4_general_ci" charset="utf8mb4">
+            <pma:table name="cicilan">
+                CREATE TABLE `cicilan` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `id_pemesanan` int(11) NOT NULL,
+                  `angsuran_ke` int(11) NOT NULL,
+                  `nominal` decimal(15,2) NOT NULL,
+                  `jatuh_tempo` date NOT NULL,
+                  `status` enum(&#039;belum_bayar&#039;,&#039;menunggu_verifikasi&#039;,&#039;lunas&#039;) DEFAULT &#039;belum_bayar&#039;,
+                  `bukti_bayar` varchar(255) DEFAULT NULL,
+                  `tanggal_bayar` datetime DEFAULT NULL,
+                  PRIMARY KEY (`id`),
+                  KEY `id_pemesanan` (`id_pemesanan`),
+                  CONSTRAINT `cicilan_ibfk_1` FOREIGN KEY (`id_pemesanan`) REFERENCES `pemesanan` (`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB AUTO_INCREMENT=79 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="hewan">
+                CREATE TABLE `hewan` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `jenis_hewan` varchar(50) NOT NULL,
+                  `deskripsi` text DEFAULT NULL,
+                  `harga` decimal(15,2) DEFAULT NULL,
+                  `stok` int(11) NOT NULL,
+                  `gambar` varchar(255) DEFAULT NULL,
+                  `kategori` enum(&#039;reguler&#039;,&#039;qurban&#039;,&#039;aqiqah&#039;) DEFAULT &#039;reguler&#039;,
+                  `usia_bulan` int(11) DEFAULT 0 COMMENT &#039;Penting untuk syarat sah Qurban&#039;,
+                  `riwayat_kesehatan` text DEFAULT NULL COMMENT &#039;Catatan vaksin/penyakit&#039;,
+                  PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="history_pembayaran">
+                CREATE TABLE `history_pembayaran` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `pesanan_id` int(11) NOT NULL,
+                  `jenis` enum(&#039;dp&#039;,&#039;cicilan&#039;,&#039;pelunasan&#039;) NOT NULL,
+                  `nominal` decimal(15,2) NOT NULL,
+                  `metode` enum(&#039;transfer&#039;,&#039;cash&#039;) DEFAULT &#039;transfer&#039;,
+                  `bukti` varchar(255) DEFAULT NULL,
+                  `tanggal` datetime DEFAULT current_timestamp(),
+                  `keterangan` text DEFAULT NULL,
+                  PRIMARY KEY (`id`),
+                  KEY `idx_pesanan_tanggal` (`pesanan_id`,`tanggal`),
+                  CONSTRAINT `history_pembayaran_ibfk_1` FOREIGN KEY (`pesanan_id`) REFERENCES `pemesanan` (`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB AUTO_INCREMENT=15 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="kelompok_qurban">
+                CREATE TABLE `kelompok_qurban` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `hewan_id` int(11) NOT NULL,
+                  `nama_kelompok` varchar(100) DEFAULT &#039;Kelompok Umum&#039;,
+                  `status` enum(&#039;terbuka&#039;,&#039;penuh&#039;,&#039;dibatalkan&#039;) DEFAULT &#039;terbuka&#039;,
+                  `kuota_terisi` int(11) DEFAULT 0,
+                  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+                  PRIMARY KEY (`id`),
+                  KEY `hewan_id` (`hewan_id`),
+                  CONSTRAINT `kelompok_qurban_ibfk_1` FOREIGN KEY (`hewan_id`) REFERENCES `hewan` (`id`)
+                ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="konfigurasi_notifikasi">
+                CREATE TABLE `konfigurasi_notifikasi` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `user_id` int(11) NOT NULL,
+                  `email_notif` tinyint(1) DEFAULT 1,
+                  `inapp_notif` tinyint(1) DEFAULT 1,
+                  `notify_pembayaran` tinyint(1) DEFAULT 1,
+                  `notify_pengiriman` tinyint(1) DEFAULT 1,
+                  `notify_promosi` tinyint(1) DEFAULT 0,
+                  `notify_stok` tinyint(1) DEFAULT 0,
+                  `notify_login` tinyint(1) DEFAULT 1,
+                  PRIMARY KEY (`id`),
+                  KEY `user_id` (`user_id`),
+                  CONSTRAINT `konfigurasi_notifikasi_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="laporan_keuangan">
+                CREATE TABLE `laporan_keuangan` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `pesanan_id` int(11) DEFAULT NULL,
+                  `jenis_transaksi` enum(&#039;pemasukan&#039;,&#039;pengeluaran&#039;) DEFAULT NULL,
+                  `jumlah` decimal(10,2) DEFAULT NULL,
+                  `tanggal` datetime DEFAULT current_timestamp(),
+                  PRIMARY KEY (`id`),
+                  KEY `pesanan_id` (`pesanan_id`),
+                  CONSTRAINT `laporan_keuangan_ibfk_1` FOREIGN KEY (`pesanan_id`) REFERENCES `pemesanan` (`id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="log_kesehatan">
+                CREATE TABLE `log_kesehatan` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `hewan_id` int(11) NOT NULL,
+                  `tanggal_periksa` date NOT NULL,
+                  `kondisi` text NOT NULL,
+                  `tindakan` varchar(255) DEFAULT NULL,
+                  `nama_dokter` varchar(100) DEFAULT NULL,
+                  `foto_kondisi` varchar(255) DEFAULT NULL,
+                  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+                  PRIMARY KEY (`id`),
+                  KEY `hewan_id` (`hewan_id`),
+                  CONSTRAINT `log_kesehatan_ibfk_1` FOREIGN KEY (`hewan_id`) REFERENCES `hewan` (`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="log_stok">
+                CREATE TABLE `log_stok` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `hewan_id` int(11) NOT NULL,
+                  `stok_sebelum` int(11) NOT NULL,
+                  `stok_sesudah` int(11) NOT NULL,
+                  `aksi` varchar(20) NOT NULL,
+                  `jumlah` int(11) NOT NULL,
+                  `keterangan` varchar(255) DEFAULT NULL,
+                  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+                  PRIMARY KEY (`id`),
+                  KEY `hewan_id` (`hewan_id`),
+                  CONSTRAINT `log_stok_ibfk_1` FOREIGN KEY (`hewan_id`) REFERENCES `hewan` (`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="metode_pembayaran">
+                CREATE TABLE `metode_pembayaran` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `nama` varchar(50) NOT NULL,
+                  `deskripsi` text DEFAULT NULL,
+                  `min_dp` decimal(10,2) DEFAULT 0.00,
+                  `cicilan_bulan` int(11) DEFAULT 0,
+                  `bunga` decimal(5,2) DEFAULT 0.00,
+                  `status` enum(&#039;active&#039;,&#039;inactive&#039;) DEFAULT &#039;active&#039;,
+                  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+                  PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="notifikasi">
+                CREATE TABLE `notifikasi` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `judul` varchar(100) DEFAULT NULL,
+                  `pesan` text DEFAULT NULL,
+                  `tipe` varchar(50) DEFAULT NULL,
+                  `is_read` tinyint(1) DEFAULT 0,
+                  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+                  `user_id` int(11) DEFAULT NULL,
+                  `role_target` enum(&#039;admin&#039;,&#039;pelanggan&#039;) DEFAULT &#039;pelanggan&#039;,
+                  PRIMARY KEY (`id`),
+                  KEY `idx_user_notif` (`user_id`)
+                ) ENGINE=InnoDB AUTO_INCREMENT=83 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="pemesanan">
+                CREATE TABLE `pemesanan` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `user_id` int(11) DEFAULT NULL,
+                  `hewan_id` int(11) DEFAULT NULL,
+                  `jumlah` int(11) NOT NULL,
+                  `total_harga` decimal(15,2) DEFAULT NULL,
+                  `tanggal_pemesanan` datetime DEFAULT current_timestamp(),
+                  `jadwal_pemotongan` date DEFAULT NULL,
+                  `opsi_pemotongan` enum(&#039;potong&#039;,&#039;hidup&#039;) DEFAULT &#039;potong&#039;,
+                  `status_pesanan` varchar(50) DEFAULT &#039;pending&#039;,
+                  `bukti_transfer` varchar(255) DEFAULT NULL,
+                  `status_hewan` enum(&#039;di_kandang&#039;,&#039;siap_potong&#039;,&#039;sudah_dipotong&#039;,&#039;disalurkan&#039;) DEFAULT &#039;di_kandang&#039;,
+                  `is_cicilan` tinyint(1) DEFAULT 0,
+                  `id_cicilan` int(11) DEFAULT NULL,
+                  `dp_amount` decimal(15,2) DEFAULT 0.00,
+                  `remaining_amount` decimal(15,2) DEFAULT 0.00,
+                  `cicilan_status` enum(&#039;full&#039;,&#039;dp_only&#039;,&#039;cicilan&#039;) DEFAULT &#039;full&#039;,
+                  `metode_bayar` enum(&#039;cash&#039;,&#039;cicilan&#039;) DEFAULT &#039;cash&#039;,
+                  `status_pembayaran` varchar(50) DEFAULT &#039;belum_bayar&#039;,
+                  `dp_nominal` decimal(15,2) DEFAULT 0.00,
+                  `dp_bukti` varchar(255) DEFAULT NULL,
+                  `dp_date` datetime DEFAULT NULL,
+                  `total_dibayar` decimal(15,2) DEFAULT 0.00,
+                  `jatuh_tempo_cicilan` date DEFAULT NULL,
+                  `angsuran_ke` int(11) DEFAULT 0,
+                  `total_angsuran` int(11) DEFAULT 0,
+                  `jam_potong` time DEFAULT NULL,
+                  `metode_pengambilan` enum(&#039;ambil_sendiri&#039;,&#039;diantar&#039;) DEFAULT &#039;ambil_sendiri&#039;,
+                  `lokasi_pengiriman` text DEFAULT NULL,
+                  `tukang_potong_id` int(11) DEFAULT NULL,
+                  `tipe_ibadah` enum(&#039;qurban_sendiri&#039;,&#039;qurban_patungan&#039;,&#039;aqiqah&#039;,&#039;daging_saja&#039;) DEFAULT &#039;daging_saja&#039;,
+                  `nama_shohibul_qurban` varchar(255) DEFAULT NULL COMMENT &#039;Nama orang yang berqurban&#039;,
+                  `nama_anak` varchar(255) DEFAULT NULL COMMENT &#039;Khusus Aqiqah&#039;,
+                  `nama_ayah_anak` varchar(255) DEFAULT NULL COMMENT &#039;Khusus Aqiqah&#039;,
+                  `tanggal_lahir_anak` date DEFAULT NULL COMMENT &#039;Khusus Aqiqah&#039;,
+                  `link_video_pemotongan` varchar(255) DEFAULT NULL COMMENT &#039;Link dokumentasi/Live Streaming&#039;,
+                  `sertifikat_file` varchar(255) DEFAULT NULL COMMENT &#039;File sertifikat digital&#039;,
+                  `status_distribusi` enum(&#039;belum&#039;,&#039;sedang_distribusi&#039;,&#039;selesai&#039;) DEFAULT &#039;belum&#039;,
+                  `kelompok_qurban_id` int(11) DEFAULT NULL,
+                  `lacak_distribusi` text DEFAULT NULL,
+                  PRIMARY KEY (`id`),
+                  KEY `user_id` (`user_id`),
+                  KEY `hewan_id` (`hewan_id`),
+                  KEY `fk_tukang` (`tukang_potong_id`),
+                  KEY `fk_kelompok` (`kelompok_qurban_id`),
+                  CONSTRAINT `fk_kelompok` FOREIGN KEY (`kelompok_qurban_id`) REFERENCES `kelompok_qurban` (`id`)
+                ) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="rencana_cicilan">
+                CREATE TABLE `rencana_cicilan` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `nama` varchar(100) NOT NULL,
+                  `jumlah_angsuran` int(11) NOT NULL,
+                  `persen_dp` decimal(5,2) DEFAULT 20.00,
+                  `interval_hari` int(11) DEFAULT 30,
+                  `bunga` decimal(5,2) DEFAULT 0.00,
+                  `status` enum(&#039;active&#039;,&#039;inactive&#039;) DEFAULT &#039;active&#039;,
+                  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+                  PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="transaksi_cicilan">
+                CREATE TABLE `transaksi_cicilan` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `id_pesanan` int(11) NOT NULL,
+                  `id_rencana_cicilan` int(11) NOT NULL,
+                  `total_pesanan` decimal(15,2) NOT NULL,
+                  `jumlah_dp` decimal(15,2) NOT NULL,
+                  `jumlah_cicilan` decimal(15,2) NOT NULL,
+                  `total_cicilan` decimal(15,2) NOT NULL,
+                  `jumlah_sudah_bayar` decimal(15,2) DEFAULT 0.00,
+                  `sisa_hutang` decimal(15,2) NOT NULL,
+                  `status` enum(&#039;aktif&#039;,&#039;lunas&#039;,&#039;terlambat&#039;,&#039;batal&#039;) DEFAULT &#039;aktif&#039;,
+                  `tanggal_mulai` date DEFAULT NULL,
+                  `tanggal_jatuh_tempo` date DEFAULT NULL,
+                  `tanggal_lunas` date DEFAULT NULL,
+                  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+                  PRIMARY KEY (`id`),
+                  KEY `id_pesanan` (`id_pesanan`),
+                  KEY `id_rencana_cicilan` (`id_rencana_cicilan`),
+                  CONSTRAINT `transaksi_cicilan_ibfk_1` FOREIGN KEY (`id_pesanan`) REFERENCES `pemesanan` (`id`) ON DELETE CASCADE,
+                  CONSTRAINT `transaksi_cicilan_ibfk_2` FOREIGN KEY (`id_rencana_cicilan`) REFERENCES `rencana_cicilan` (`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+            <pma:table name="users">
+                CREATE TABLE `users` (
+                  `id` int(11) NOT NULL AUTO_INCREMENT,
+                  `nama_lengkap` varchar(100) DEFAULT NULL,
+                  `email` varchar(100) NOT NULL,
+                  `password` varchar(255) NOT NULL,
+                  `no_telepon` varchar(20) DEFAULT NULL,
+                  `alamat` text DEFAULT NULL,
+                  `role` enum(&#039;admin&#039;,&#039;pelanggan&#039;) DEFAULT &#039;pelanggan&#039;,
+                  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+                  `reset_token` varchar(255) DEFAULT NULL,
+                  `reset_token_expires` datetime DEFAULT NULL,
+                  PRIMARY KEY (`id`),
+                  UNIQUE KEY `email` (`email`)
+                ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+            </pma:table>
+        </pma:database>
+    </pma:structure_schemas>
+
+    <!--
+    - Database: 'db_peternakan'
+    -->
+    <database name="db_peternakan">
+        <!-- Table cicilan -->
+        <!-- Table hewan -->
+        <table name="hewan">
+            <column name="id">13</column>
+            <column name="jenis_hewan">Domba</column>
+            <column name="deskripsi">25-40 kg)</column>
+            <column name="harga">4500000.00</column>
+            <column name="stok">9</column>
+            <column name="gambar">hewan-1767944326959.jpg</column>
+            <column name="kategori">aqiqah</column>
+            <column name="usia_bulan">0</column>
+            <column name="riwayat_kesehatan">NULL</column>
+        </table>
+        <!-- Table history_pembayaran -->
+        <!-- Table kelompok_qurban -->
+        <table name="kelompok_qurban">
+            <column name="id">1</column>
+            <column name="hewan_id">13</column>
+            <column name="nama_kelompok">Kelompok Domba - 1767946126723</column>
+            <column name="status">terbuka</column>
+            <column name="kuota_terisi">1</column>
+            <column name="created_at">2026-01-09 16:08:46</column>
+        </table>
+        <!-- Table konfigurasi_notifikasi -->
+        <table name="konfigurasi_notifikasi">
+            <column name="id">6</column>
+            <column name="user_id">5</column>
+            <column name="email_notif">1</column>
+            <column name="inapp_notif">1</column>
+            <column name="notify_pembayaran">1</column>
+            <column name="notify_pengiriman">1</column>
+            <column name="notify_promosi">0</column>
+            <column name="notify_stok">0</column>
+            <column name="notify_login">1</column>
+        </table>
+        <!-- Table laporan_keuangan -->
+        <!-- Table log_kesehatan -->
+        <table name="log_kesehatan">
+            <column name="id">1</column>
+            <column name="hewan_id">13</column>
+            <column name="tanggal_periksa">2026-01-09</column>
+            <column name="kondisi">Sehat</column>
+            <column name="tindakan">Pemberian Vaksin</column>
+            <column name="nama_dokter"></column>
+            <column name="foto_kondisi">NULL</column>
+            <column name="created_at">2026-01-09 15:39:01</column>
+        </table>
+        <table name="log_kesehatan">
+            <column name="id">2</column>
+            <column name="hewan_id">13</column>
+            <column name="tanggal_periksa">2026-01-09</column>
+            <column name="kondisi">Sehat</column>
+            <column name="tindakan">Pemberian Vaksin</column>
+            <column name="nama_dokter">atat</column>
+            <column name="foto_kondisi">NULL</column>
+            <column name="created_at">2026-01-09 20:09:15</column>
+        </table>
+        <!-- Table log_stok -->
+        <!-- Table metode_pembayaran -->
+        <table name="metode_pembayaran">
+            <column name="id">1</column>
+            <column name="nama">cash</column>
+            <column name="deskripsi">Pembayaran lunas sekaligus</column>
+            <column name="min_dp">100.00</column>
+            <column name="cicilan_bulan">0</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 22:12:25</column>
+        </table>
+        <table name="metode_pembayaran">
+            <column name="id">2</column>
+            <column name="nama">cicilan</column>
+            <column name="deskripsi">Cicilan dengan DP 30% + 12 bulan</column>
+            <column name="min_dp">30.00</column>
+            <column name="cicilan_bulan">12</column>
+            <column name="bunga">1.50</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 22:12:25</column>
+        </table>
+        <table name="metode_pembayaran">
+            <column name="id">3</column>
+            <column name="nama">cash</column>
+            <column name="deskripsi">Pembayaran lunas sekaligus</column>
+            <column name="min_dp">100.00</column>
+            <column name="cicilan_bulan">0</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 22:56:38</column>
+        </table>
+        <table name="metode_pembayaran">
+            <column name="id">4</column>
+            <column name="nama">cicilan</column>
+            <column name="deskripsi">Cicilan dengan DP 30% + 12 bulan</column>
+            <column name="min_dp">30.00</column>
+            <column name="cicilan_bulan">12</column>
+            <column name="bunga">1.50</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 22:56:38</column>
+        </table>
+        <table name="metode_pembayaran">
+            <column name="id">5</column>
+            <column name="nama">cash</column>
+            <column name="deskripsi">Pembayaran lunas sekaligus</column>
+            <column name="min_dp">100.00</column>
+            <column name="cicilan_bulan">0</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 22:59:15</column>
+        </table>
+        <table name="metode_pembayaran">
+            <column name="id">6</column>
+            <column name="nama">cicilan</column>
+            <column name="deskripsi">Cicilan dengan DP 30% + 12 bulan</column>
+            <column name="min_dp">30.00</column>
+            <column name="cicilan_bulan">12</column>
+            <column name="bunga">1.50</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 22:59:15</column>
+        </table>
+        <!-- Table notifikasi -->
+        <table name="notifikasi">
+            <column name="id">70</column>
+            <column name="judul">Pesanan Baru</column>
+            <column name="pesan">Order #1 masuk.</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 16:29:04</column>
+            <column name="user_id">NULL</column>
+            <column name="role_target">admin</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">71</column>
+            <column name="judul">Pembayaran DP</column>
+            <column name="pesan">User upload DP order #1</column>
+            <column name="tipe">pembayaran</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 16:29:11</column>
+            <column name="user_id">NULL</column>
+            <column name="role_target">admin</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">72</column>
+            <column name="judul">Pesanan Baru Masuk</column>
+            <column name="pesan">Order #2: Domba (1 ekor)</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 17:12:05</column>
+            <column name="user_id">NULL</column>
+            <column name="role_target">admin</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">73</column>
+            <column name="judul">Pesanan Baru Masuk</column>
+            <column name="pesan">Order #3: Domba (1 ekor)</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 17:13:25</column>
+            <column name="user_id">NULL</column>
+            <column name="role_target">admin</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">74</column>
+            <column name="judul">Pesanan Baru Masuk</column>
+            <column name="pesan">Order #4: Domba (1 ekor)</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 17:18:07</column>
+            <column name="user_id">NULL</column>
+            <column name="role_target">admin</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">75</column>
+            <column name="judul">Pembayaran Masuk</column>
+            <column name="pesan">Order #4 mengupload bukti bayar.</column>
+            <column name="tipe">pembayaran</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 17:18:13</column>
+            <column name="user_id">NULL</column>
+            <column name="role_target">admin</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">76</column>
+            <column name="judul">Pesanan Baru Masuk</column>
+            <column name="pesan">Order #5: Domba (2 ekor)</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 17:18:42</column>
+            <column name="user_id">NULL</column>
+            <column name="role_target">admin</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">77</column>
+            <column name="judul">Pesanan Baru Masuk</column>
+            <column name="pesan">Order #6: Domba (1 ekor)</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 17:31:47</column>
+            <column name="user_id">NULL</column>
+            <column name="role_target">admin</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">78</column>
+            <column name="judul">Pesanan Baru</column>
+            <column name="pesan">Order #7: Domba</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 17:42:41</column>
+            <column name="user_id">NULL</column>
+            <column name="role_target">admin</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">79</column>
+            <column name="judul">Pesanan Baru</column>
+            <column name="pesan">Order #8: Domba</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 20:11:43</column>
+            <column name="user_id">NULL</column>
+            <column name="role_target">admin</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">80</column>
+            <column name="judul">Login Berhasil</column>
+            <column name="pesan">Akun Anda baru saja login.</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 20:18:16</column>
+            <column name="user_id">5</column>
+            <column name="role_target">pelanggan</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">81</column>
+            <column name="judul">Login Berhasil</column>
+            <column name="pesan">Akun Anda baru saja login.</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 20:40:31</column>
+            <column name="user_id">5</column>
+            <column name="role_target">pelanggan</column>
+        </table>
+        <table name="notifikasi">
+            <column name="id">82</column>
+            <column name="judul">Login Berhasil</column>
+            <column name="pesan">Akun Anda baru saja login.</column>
+            <column name="tipe">info</column>
+            <column name="is_read">0</column>
+            <column name="created_at">2026-01-09 20:44:11</column>
+            <column name="user_id">5</column>
+            <column name="role_target">pelanggan</column>
+        </table>
+        <!-- Table pemesanan -->
+        <table name="pemesanan">
+            <column name="id">8</column>
+            <column name="user_id">5</column>
+            <column name="hewan_id">13</column>
+            <column name="jumlah">1</column>
+            <column name="total_harga">4500000.00</column>
+            <column name="tanggal_pemesanan">2026-01-09 20:11:43</column>
+            <column name="jadwal_pemotongan">2026-01-16</column>
+            <column name="opsi_pemotongan">potong</column>
+            <column name="status_pesanan">diproses</column>
+            <column name="bukti_transfer">bukti-1767960711362.jpg</column>
+            <column name="status_hewan">di_kandang</column>
+            <column name="is_cicilan">0</column>
+            <column name="id_cicilan">NULL</column>
+            <column name="dp_amount">0.00</column>
+            <column name="remaining_amount">0.00</column>
+            <column name="cicilan_status">full</column>
+            <column name="metode_bayar">cash</column>
+            <column name="status_pembayaran">lunas</column>
+            <column name="dp_nominal">0.00</column>
+            <column name="dp_bukti">NULL</column>
+            <column name="dp_date">NULL</column>
+            <column name="total_dibayar">0.00</column>
+            <column name="jatuh_tempo_cicilan">NULL</column>
+            <column name="angsuran_ke">0</column>
+            <column name="total_angsuran">0</column>
+            <column name="jam_potong">NULL</column>
+            <column name="metode_pengambilan">diantar</column>
+            <column name="lokasi_pengiriman">jalan jalan</column>
+            <column name="tukang_potong_id">NULL</column>
+            <column name="tipe_ibadah">aqiqah</column>
+            <column name="nama_shohibul_qurban">NULL</column>
+            <column name="nama_anak">ardi</column>
+            <column name="nama_ayah_anak">doy</column>
+            <column name="tanggal_lahir_anak">2026-01-16</column>
+            <column name="link_video_pemotongan">NULL</column>
+            <column name="sertifikat_file">NULL</column>
+            <column name="status_distribusi">belum</column>
+            <column name="kelompok_qurban_id">NULL</column>
+            <column name="lacak_distribusi">jalan jalan</column>
+        </table>
+        <!-- Table rencana_cicilan -->
+        <table name="rencana_cicilan">
+            <column name="id">1</column>
+            <column name="nama">Cicilan 2x</column>
+            <column name="jumlah_angsuran">2</column>
+            <column name="persen_dp">50.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:23:38</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">2</column>
+            <column name="nama">Cicilan 3x</column>
+            <column name="jumlah_angsuran">3</column>
+            <column name="persen_dp">40.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:23:38</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">3</column>
+            <column name="nama">Cicilan 4x</column>
+            <column name="jumlah_angsuran">4</column>
+            <column name="persen_dp">30.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:23:38</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">4</column>
+            <column name="nama">Cicilan 6x</column>
+            <column name="jumlah_angsuran">6</column>
+            <column name="persen_dp">20.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">2.50</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:23:38</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">5</column>
+            <column name="nama">DP 50% + Pelunasan</column>
+            <column name="jumlah_angsuran">2</column>
+            <column name="persen_dp">50.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:23:38</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">6</column>
+            <column name="nama">DP 30% + Pelunasan</column>
+            <column name="jumlah_angsuran">2</column>
+            <column name="persen_dp">30.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:23:38</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">7</column>
+            <column name="nama">Cicilan 2x</column>
+            <column name="jumlah_angsuran">2</column>
+            <column name="persen_dp">50.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:24:14</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">8</column>
+            <column name="nama">Cicilan 3x</column>
+            <column name="jumlah_angsuran">3</column>
+            <column name="persen_dp">40.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:24:14</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">9</column>
+            <column name="nama">Cicilan 4x</column>
+            <column name="jumlah_angsuran">4</column>
+            <column name="persen_dp">30.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:24:14</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">10</column>
+            <column name="nama">Cicilan 6x</column>
+            <column name="jumlah_angsuran">6</column>
+            <column name="persen_dp">20.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">2.50</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:24:14</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">11</column>
+            <column name="nama">DP 50% + Pelunasan</column>
+            <column name="jumlah_angsuran">2</column>
+            <column name="persen_dp">50.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:24:14</column>
+        </table>
+        <table name="rencana_cicilan">
+            <column name="id">12</column>
+            <column name="nama">DP 30% + Pelunasan</column>
+            <column name="jumlah_angsuran">2</column>
+            <column name="persen_dp">30.00</column>
+            <column name="interval_hari">30</column>
+            <column name="bunga">0.00</column>
+            <column name="status">active</column>
+            <column name="created_at">2025-12-22 21:24:14</column>
+        </table>
+        <!-- Table transaksi_cicilan -->
+        <!-- Table users -->
+        <table name="users">
+            <column name="id">1</column>
+            <column name="nama_lengkap">bahas</column>
+            <column name="email">bahas@gmail.com</column>
+            <column name="password">$2b$08$.jGdCuPZbtlHXJ6bASYIYewTfaT6iTugDM0QThk0tU3PAfbd8/IkO</column>
+            <column name="no_telepon">0812121216</column>
+            <column name="alamat">jl.keong</column>
+            <column name="role">admin</column>
+            <column name="created_at">2025-12-19 22:25:29</column>
+            <column name="reset_token">NULL</column>
+            <column name="reset_token_expires">NULL</column>
+        </table>
+        <table name="users">
+            <column name="id">5</column>
+            <column name="nama_lengkap">yaya12</column>
+            <column name="email">yasya123@gmail.com</column>
+            <column name="password">$2b$08$JldgrLUrXOnwXecL6On9weHj7BiKigmUE.xC0oYSRKDrObzKWnjiS</column>
+            <column name="no_telepon">0987654321</column>
+            <column name="alamat">qawsedfgh</column>
+            <column name="role">pelanggan</column>
+            <column name="created_at">2026-01-06 15:04:55</column>
+            <column name="reset_token">NULL</column>
+            <column name="reset_token_expires">NULL</column>
+        </table>
+        <table name="users">
+            <column name="id">6</column>
+            <column name="nama_lengkap">yaya1234</column>
+            <column name="email">yasya1234@gmail.com</column>
+            <column name="password">$2b$08$ox.1koVm5DMCYasg9mmIeuuXkMph/Yo3yYE4MENbsEjetG6iEaE.S</column>
+            <column name="no_telepon">0987654321</column>
+            <column name="alamat">qawsedfgh</column>
+            <column name="role">pelanggan</column>
+            <column name="created_at">2026-01-06 19:37:34</column>
+            <column name="reset_token">NULL</column>
+            <column name="reset_token_expires">NULL</column>
+        </table>
+    </database>
+</pma_xml_export>
